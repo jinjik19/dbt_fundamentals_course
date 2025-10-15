@@ -1,21 +1,29 @@
 with payment as (
     select * from {{ ref('stg_stripe__payments') }}
 ),
-customer_orders as (
+
+orders as (
+    select * from {{ ref('stg_jaffle_shop__orders') }}
+),
+
+order_payments as (
 
     select
-        customer_id,
-        order_id
-    from {{ ref('stg_jaffle_shop__orders') }}
+        order_id,
+        sum (case when status = 'success' then amount end) as amount
+    from payment
+
+    group by 1
 
 ),
 final as (
     select
-        payment.order_id,
-        customer_orders.customer_id,
-        payment.amount
-    from payment
-    left join customer_orders using (order_id)
+        orders.order_id,
+        orders.customer_id,
+        orders.order_date,
+        coalesce (order_payments.amount, 0) as amount
+    from orders
+    left join order_payments using (order_id)
 )
 
 select * from final
